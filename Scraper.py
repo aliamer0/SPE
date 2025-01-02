@@ -23,7 +23,22 @@ class Scraper:
 
         self.cursor = conn.cursor()
         self.user_agent = user_agent
+        # Example
         # "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
+        #initialize driver
+        self.chrome_options = Options()
+        self.chrome_options.add_argument(f"user-agent={self.user_agent}")
+        self.driver = webdriver.Chrome(options=chrome_options)
+
         
+    def db_insert(self, table, columns, values):
+        insert_query = f""" INSERT INTO {table}
+                        {columns}
+                        VALUES (%s, %s, %s, %s, %s)"""
         
-    def db_insert(self)
+        self.cursor.execute(insert_query)
+        self.conn.commit()
+
+    
+
