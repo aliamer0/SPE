@@ -35,10 +35,22 @@ class Scraper:
     def db_insert(self, table, columns, values):
         insert_query = f""" INSERT INTO {table}
                         {columns}
-                        VALUES (%s, %s, %s, %s, %s)"""
+                        VALUES (%s, %s, %s, %s, %s);"""
         
         self.cursor.execute(insert_query)
         self.conn.commit()
 
-    
+    def db_delete(self, table, condition)
+        delete_query = f"""DELETE FROM {table} WHERE {condition};"""
+        self.cursor.execute(insert_query)
+        self.conn.commit()
+
+
+    def db_update(self, table, columns, values, conditiion):
+        for i in range(len(columns)):
+            update_query = f""" UPDATE {table}
+                                SET {columns[i]} = {values[0]}
+                                WHERE {condition};"""
+            self.cursor.execute(insert_query)
+            self.conn.commit()
 
