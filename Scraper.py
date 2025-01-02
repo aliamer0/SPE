@@ -7,6 +7,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import re
+import requests
 
 
 """
@@ -45,7 +46,7 @@ class Scraper:
                                password = self.password,
                                database = self.database)
 
-        self.cursor = conn.cursor()
+        self.cursor = self.conn.cursor()
         self.user_agent = user_agent
         # Example
         # "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
@@ -54,6 +55,11 @@ class Scraper:
         self.chrome_options = Options()
         self.chrome_options.add_argument(f"user-agent={self.user_agent}")
         self.driver = webdriver.Chrome(options=chrome_options)
+
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': self.user_agent
+        })
 
         
     def db_insert(self, table, columns, values):
@@ -87,6 +93,7 @@ class Scraper:
         self.cursor.close()
         self.conn.close()
         self.driver.quit()
+        session.close()
 
     def navigate(self, url):
         self.driver.get(url)
@@ -160,94 +167,188 @@ class Scraper:
             duration = datetime.strptime(duration, "%H:%M:%S").time()
             values = (title, url, rating, number_of_ratings, duration)        
             self.db_insert( "movies", "(title, url, rating, number_of_ratings, duration)", values)
-            #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+        #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-            #-----------------------------------------------------------Adding Release_date ---------------------------------------------------------------------------------------------#
+        #-----------------------------------------------------------Adding Release_date ---------------------------------------------------------------------------------------------#
 
-            def extract_and_convert_date(text):
-                # Define a regex pattern to capture "Month Day Year" in any order
-                pattern = r'(?P<month>[A-Za-z]+)?\s*(?P<day>\d{1,2})?\s*,?\s*(?P<year>\d{4})?'
-                match = re.search(pattern, text)
+        def extract_and_convert_date(text):
+            # Define a regex pattern to capture "Month Day Year" in any order
+            pattern = r'(?P<month>[A-Za-z]+)?\s*(?P<day>\d{1,2})?\s*,?\s*(?P<year>\d{4})?'
+            match = re.search(pattern, text)
+            
+            if match:
+                # Extract matched groups for month, day, and year
+                month_str = match.group('month')
+                day_str = match.group('day')
+                year_str = match.group('year')
                 
-                if match:
-                    # Extract matched groups for month, day, and year
-                    month_str = match.group('month')
-                    day_str = match.group('day')
-                    year_str = match.group('year')
-                    
-                    # If `day_str` is missing, set it to a default value
-                    if not day_str:
-                        day_str = '1'  # Default day
-                    
-                    # Check if both `month` and `year` components are available
-                    if month_str and year_str:
-                        # Convert month name to a month number and create a date string
-                        date_str = f"{day_str} {month_str} {year_str}"
-                        date_obj = datetime.strptime(date_str, "%d %B %Y")
-                        # Convert to MySQL-compatible format (YYYY-MM-DD)
-                        mysql_date = date_obj.strftime("%Y-%m-%d")
-                        return mysql_date
-                    else:
-                        raise ValueError("Incomplete date information found in the input string")
+                # If `day_str` is missing, set it to a default value
+                if not day_str:
+                    day_str = '1'  # Default day
+                
+                # Check if both `month` and `year` components are available
+                if month_str and year_str:
+                    # Convert month name to a month number and create a date string
+                    date_str = f"{day_str} {month_str} {year_str}"
+                    date_obj = datetime.strptime(date_str, "%d %B %Y")
+                    # Convert to MySQL-compatible format (YYYY-MM-DD)
+                    mysql_date = date_obj.strftime("%Y-%m-%d")
+                    return mysql_date
                 else:
-                    raise ValueError("No valid date found in the input string")
+                    raise ValueError("Incomplete date information found in the input string")
+            else:
+                raise ValueError("No valid date found in the input string")
 
-            rows = self.db_rows("movies")
+        rows = self.db_rows("movies")
 
 
-            for row in rows:
-                driver.get(row[4] + "releaseinfo")
-                wait = WebDriverWait(self.driver, 10)
-                j = 1 
-                sibling = 0
+        for row in rows:
+            self.navigate(row[4] + "releaseinfo")
+            wait = WebDriverWait(self.driver, 10)
+            j = 1 
+            sibling = 0
+            try:
+                button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[2]/button')
+                button.click()
+            except Exception as f:
+                print("no button all")
+
+            try:
+                button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[1]/button')
+                button.click()
+            except Exception as e:
+                print("no button 'more'")
+
+            while sibling != -1:
                 try:
-                    button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[2]/button')
-                    button.click()
-                except Exception as f:
-                    print("no button all")
-
-                try:
-                    button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[1]/button')
-                    button.click()
-                except Exception as e:
-                    print("no button 'more'")
-
-                while sibling != -1:
-                    try:
-                        sibling = driver.find_element_by(XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[2]')
-                        if "internet" in sibling.text.lower() or "digital" in sibling.text.lower() or "dvd" in sibling.text.lower() or "blu-ray" in sibling.text.lower() or "re-release" in sibling.text.lower() or "istanbul" in sibling.text.lower():
-                            release_date_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[1]')))
-                            try:
-                                extract_and_convert_date(release_date_element.text)
-                            except Exception as a:
-                                j += 1
-                                continue
-                            break
-                        try:
-                            extract_and_convert_date(release_date_element.text)
-                        except Exception as b:
-                            j += 1
-                            continue
-                        print(j)
-                        j += 1
-
-                    except Exception as c:
+                    sibling = driver.find_element_by(XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[2]')
+                    if "internet" in sibling.text.lower() or "digital" in sibling.text.lower() or "dvd" in sibling.text.lower() or "blu-ray" in sibling.text.lower() or "re-release" in sibling.text.lower() or "istanbul" in sibling.text.lower():
                         release_date_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[1]')))
                         try:
                             extract_and_convert_date(release_date_element.text)
-                        except Exception as d:
+                        except Exception as a:
                             j += 1
                             continue
-                        sibling = -1
+                        break
+                    try:
+                        extract_and_convert_date(release_date_element.text)
+                    except Exception as b:
+                        j += 1
+                        continue
+                    print(j)
+                    j += 1
 
-                release_date = release_date_element.text
-                print(release_date)
-                release_date = extract_and_convert_date(release_date)
-                self.db_update("movies", ("release_date", ), (release_date, ), f"id = {row[0]}")
+                except Exception as c:
+                    release_date_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[1]')))
+                    try:
+                        extract_and_convert_date(release_date_element.text)
+                    except Exception as d:
+                        j += 1
+                        continue
+                    sibling = -1
 
-            #-------------------------------------------------------------------------------------------------------------------------------------------------#
+            release_date = release_date_element.text
+            print(release_date)
+            release_date = extract_and_convert_date(release_date)
+            self.db_update("movies", ("release_date", ), (release_date, ), f"id = {row[0]}")
+
+        #-------------------------------------------------------------------------------------------------------------------------------------------------#
+
+        #------------------------------------------------------- Adding Posters --------------------------------------------------------------------------#
+
+        query2 = "SET GLOBAL max_allowed_packet=67108864;"
+        self.cursor.execute(query2)
+
+        for row in rows:
+            self.navigate(row[4])
+            wait = WebDriverWait(self.driver, 5)
+            a = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="__next"]/main/div/section[1]/section/div[3]/section/section/div[3]/div[1]/div[1]/div/a')))
+            url = a.get_attribute("href")
+            self.navigate(url)
+            j = 2
+            dev_element = ""
+            while True:
+                try:
+                    if j == 4:
+                        dev_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/div[{j}]/img')))
+                    else:
+                        dev_element = self.find_element_by(XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/div[{j}]/img')
+
+                    j += 1
+                    if "curr" in dev_element.get_attribute("data-image-id"):
+                        break
+                    if j == 6:
+                        break
+                except Exception as e:
+                    j += 1
+
+            img = dev_element 
+            img_url = img.get_attribute("src")
+            image_data = self.session.get(img_url).content
+            with open(f"posters/{row[0]}.jpg", "wb") as file:
+                file.write(image_data)
+
+            with open(f"posters/{row[0]}.jpg", "rb") as file:
+                binary_data = file.read()
+
+            self.db_update("movies", ("poster", ), (binary_data, ), f"id = {row[0]}")
+
+        #-----------------------------------------------------------------------------------------------------------------------------------------------------#
+                
+        #-------------------------------------------------------Adding Plot ----------------------------------------------------------------------------------#
+
+            
+        for row in rows:
+            self.navigate(row[4]+"plotsummary/")
+            wait = WebDriverWait(self.driver, 5)
+            plot_element = wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/li[1]/div/div/div/div/div')))
+            plot = plot_element.text
+            print(plot)
+            self.db_update("movies", ("plot", ), (plot, ), f"id = {row[0]}")
+            print("inserted plot at id:", row[0], "!")
+
+
+        #------------------------------------------------------------------------------------------------------------------------------------------------------#
+
         
+        wait = WebDriverWait(self.driver, 20)
+
+        for row in rows:
+            self.navigate(row[4] + "videogallery/?contentTypes=trailer")
 
                 
+            a_elements = wait.until(EC.presence_of_all_elements_located((By.TAG_NAME, "a")))
+            a_elements = [element for element in a_elements if element.get_attribute("aria-label")]
+            a_element = None
 
+            for element in a_elements:
+                if "TrailerOfficial".lower() in element.get_attribute("aria-label").lower():
+                    a_element = element
+                    break
 
+                elif "TrailerTheatrical".lower() in element.get_attribute("aria-label").lower():
+                    a_element = element
+                    break
+
+                elif "Trailer".lower() in element.get_attribute("aria-label").lower():
+                    a_element = element
+
+            if a_element == None:
+                continue
+
+            driver.get(a_element.get_attribute("href"))
+            try:
+                video_url = wait.until(EC.presence_of_element_located((By.XPATH, "/html/body/div[2]/main/div[2]/div[1]/div[1]/div[2]/div[1]/div/div[2]/div/div[2]/div[4]/video")))
+            except Exception as e:
+                select_element =  wait.until(EC.presence_of_element_located((By.XPATH, "/html/body/div[2]/main/div[2]/div[1]/div[1]/div[2]/div[1]/div/div/div/div[2]/div[10]/div/div/div[2]/div/div[3]/div/div/div/select")))
+                select = Select(select_element)
+                select.select_by_index(30)
+                button_element = wait.until(EC.presence_of_element_located((By.XPATH, "/html/body/div[2]/main/div[2]/div[1]/div[1]/div[2]/div[1]/div/div/div/div[2]/div[10]/div/div/div[2]/button")))
+                button_element.click()
+                video_url = wait.until(EC.presence_of_element_located((By.XPATH, "/html/body/div[2]/main/div[2]/div[1]/div[1]/div[2]/div[1]/div/div/div/div[2]/div[4]/video")))
+
+            video_data = session.get(video_url.get_attribute("src")).content
+            with open(f"Trailers/{row[0]}.mp4", "wb") as file:
+                file.write(video_data)
+
+        self.quit()
