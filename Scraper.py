@@ -70,13 +70,18 @@ class Scraper:
         self.conn.commit()
 
 
-    def db_update(self, table, columns, values, conditiion):
+    def db_update(self, table, columns, values, condition):
         for i in range(len(columns)):
             update_query = f""" UPDATE {table}
                                 SET {columns[i]} = {values[0]}
                                 WHERE {condition};"""
             self.cursor.execute(insert_query)
             self.conn.commit()
+
+    def db_rows(self, table):
+        query = "SELECT * FROM movies"
+        cursor.execute(query)
+        return cursor.fetchall()
 
     def quit(self):
         self.cursor.close()
@@ -94,6 +99,8 @@ class Scraper:
     #and not intended for any commercial use :)
     def populate_database_movies(self):
         """ Populate database with title, url, rating, number_of_ratings, duration, etc """
+
+        #------------------------------------------------------------------ title, url, rating, number_of_ratings, duration ------------------------------------------------#
         self.navigate("https://www.imdb.com/search/title/?title_type=feature&user_rating=6,&num_votes=10000,")
         ul = self.find_element_by(XPATH, '//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul')
         button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/div[2]/div/span/button')
@@ -153,7 +160,92 @@ class Scraper:
             duration = datetime.strptime(duration, "%H:%M:%S").time()
             values = (title, url, rating, number_of_ratings, duration)        
             self.db_insert( "movies", "(title, url, rating, number_of_ratings, duration)", values)
+            #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
+            #-----------------------------------------------------------Adding Release_date ---------------------------------------------------------------------------------------------#
+
+            def extract_and_convert_date(text):
+                # Define a regex pattern to capture "Month Day Year" in any order
+                pattern = r'(?P<month>[A-Za-z]+)?\s*(?P<day>\d{1,2})?\s*,?\s*(?P<year>\d{4})?'
+                match = re.search(pattern, text)
+                
+                if match:
+                    # Extract matched groups for month, day, and year
+                    month_str = match.group('month')
+                    day_str = match.group('day')
+                    year_str = match.group('year')
+                    
+                    # If `day_str` is missing, set it to a default value
+                    if not day_str:
+                        day_str = '1'  # Default day
+                    
+                    # Check if both `month` and `year` components are available
+                    if month_str and year_str:
+                        # Convert month name to a month number and create a date string
+                        date_str = f"{day_str} {month_str} {year_str}"
+                        date_obj = datetime.strptime(date_str, "%d %B %Y")
+                        # Convert to MySQL-compatible format (YYYY-MM-DD)
+                        mysql_date = date_obj.strftime("%Y-%m-%d")
+                        return mysql_date
+                    else:
+                        raise ValueError("Incomplete date information found in the input string")
+                else:
+                    raise ValueError("No valid date found in the input string")
+
+            rows = self.db_rows("movies")
+
+
+            for row in rows:
+                driver.get(row[4] + "releaseinfo")
+                wait = WebDriverWait(self.driver, 10)
+                j = 1 
+                sibling = 0
+                try:
+                    button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[2]/button')
+                    button.click()
+                except Exception as f:
+                    print("no button all")
+
+                try:
+                    button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[1]/button')
+                    button.click()
+                except Exception as e:
+                    print("no button 'more'")
+
+                while sibling != -1:
+                    try:
+                        sibling = driver.find_element_by(XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[2]')
+                        if "internet" in sibling.text.lower() or "digital" in sibling.text.lower() or "dvd" in sibling.text.lower() or "blu-ray" in sibling.text.lower() or "re-release" in sibling.text.lower() or "istanbul" in sibling.text.lower():
+                            release_date_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[1]')))
+                            try:
+                                extract_and_convert_date(release_date_element.text)
+                            except Exception as a:
+                                j += 1
+                                continue
+                            break
+                        try:
+                            extract_and_convert_date(release_date_element.text)
+                        except Exception as b:
+                            j += 1
+                            continue
+                        print(j)
+                        j += 1
+
+                    except Exception as c:
+                        release_date_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[1]')))
+                        try:
+                            extract_and_convert_date(release_date_element.text)
+                        except Exception as d:
+                            j += 1
+                            continue
+                        sibling = -1
+
+                release_date = release_date_element.text
+                print(release_date)
+                release_date = extract_and_convert_date(release_date)
+                self.db_update("movies", ("release_date", ), (release_date, ), f"id = {row[0]}")
+
+            #-------------------------------------------------------------------------------------------------------------------------------------------------#
         
 
                 
