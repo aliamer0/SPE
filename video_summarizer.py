@@ -267,7 +267,7 @@ def analyze_audio_features(clip, start, end):
 def find_engaging_scenes(video_path, max_duration=30, plot_text=""):
     scenes = detect_scenes_with_motion(video_path)
     scenes_with_engagement = []
-    keywords = ["love", "fight", "escape", "revenge", "mystery", "hero", "villain", "sacrifice"]
+    keywords = ["love", "fight", "escape", "revenge", "mystery", "hero", "villain", "sacrifice", "adventure"]
     matching_score = sum(1 for word in keywords if word in plot_text.lower())
 
     for start, end, scene_score in scenes:
@@ -317,7 +317,7 @@ clip_list = []
 
 
 # Extract and combine clips with adaptive transitions and dynamic text overlays
-def extract_and_combine_clips(video_path, output_path, output_path1, cap_path, scenes, script, transition_duration=0.25):
+def extract_and_combine_clips(video_path, output_path, output_path1, cap_path, scenes, transition_duration=0.25):
     clips = []
     for start, end in scenes:
         clip = VideoFileClip(video_path).subclip(start, end).resize((1080, 1920))
@@ -371,33 +371,28 @@ def extract_and_combine_clips(video_path, output_path, output_path1, cap_path, s
 
 
 
-# Main loop
-while start_date <= end_date:
-    sql_query  = f"SELECT id, title, release_date, rating, plot FROM movies WHERE MONTH(release_date) = {start_date.month} AND DAY(release_date) = {start_date.day} ORDER BY number_of_ratings ASC, rating ASC;"
-    cursor.execute(sql_query)
-    rows = cursor.fetchall()
-    
-    start_date += timedelta(days=1)
-    for i, row in enumerate(rows, 1):
-        video_path = f"/home/ali/Desktop/Projects/#03 WasReleasedToday/Trailers/{row[0]}.mp4"
-        output_path = f"output/{row[2].month}-{row[2].day}/#{i}-{row[0]}.mp4"
-        output_path1 = f"output/{row[2].month}-{row[2].day}/trailers/#{i}-{row[0]}.mp4"
-        cap_path = f"output/{row[2].month}-{row[2].day}/trailers/#{i}-{row[0]}.srt"
-        output_dir = os.path.dirname(output_path)
-        os.makedirs(output_dir, exist_ok=True)
-        output_dir1 = os.path.dirname(output_path1)
-        os.makedirs(output_dir1, exist_ok=True)
-        with open (f"output/{row[2].month}-{row[2].day}/#{i}-{row[0]}-script.txt", "r") as file:
-            script = file.read()
-
-        script = script.strip()
-
-        plot_text = row[4]
-        scenes = find_engaging_scenes(video_path, max_duration=20, plot_text=plot_text)
-        if scenes:
-            extract_and_combine_clips(video_path, output_path, output_path1, cap_path, scenes, script)
-        else:
-            print(f"No suitable scenes found for clipping in {video_path}.")
-
-# Close the database connection
-conn.close()
+### Main loop
+##
+##    
+##video_path = f"5105.mp4"
+##output_path = f"output.mp4"
+##output_path1 = f"output2.mp4"
+##cap_path = f"captions.srt"
+##output_dir = os.path.dirname(output_path)
+##os.makedirs(output_dir, exist_ok=True)
+##output_dir1 = os.path.dirname(output_path1)
+##os.makedirs(output_dir1, exist_ok=True)
+####        with open (f"output/{row[2].month}-{row[2].day}/#{i}-{row[0]}-script.txt", "r") as file:
+####            script = file.read()
+##
+####        script = script.strip()
+##
+##plot_text = ""
+##scenes = find_engaging_scenes(video_path, max_duration=20, plot_text=plot_text)
+##if scenes:
+##    extract_and_combine_clips(video_path, output_path, output_path1, cap_path, scenes)
+##else:
+##    print(f"No suitable scenes found for clipping in {video_path}.")
+##
+### Close the database connection
+##conn.close()
