@@ -54,7 +54,7 @@ class Scraper:
         #initialize driver
         self.chrome_options = Options()
         self.chrome_options.add_argument(f"user-agent={self.user_agent}")
-        self.driver = webdriver.Chrome(options=chrome_options)
+        self.driver = webdriver.Chrome(options=self.chrome_options)
 
         self.session = requests.Session()
         self.session.headers.update({
@@ -70,9 +70,9 @@ class Scraper:
         self.cursor.execute(insert_query, values)
         self.conn.commit()
 
-    def db_delete(self, table, condition)
+    def db_delete(self, table, condition):
         delete_query = f"""DELETE FROM {table} WHERE {condition};"""
-        self.cursor.execute(insert_query)
+        self.cursor.execute(delete_query)
         self.conn.commit()
 
 
@@ -93,13 +93,13 @@ class Scraper:
         self.cursor.close()
         self.conn.close()
         self.driver.quit()
-        session.close()
+        self.session.close()
 
     def navigate(self, url):
         self.driver.get(url)
 
     def find_element_by(self, method, value):
-        return self.driver.find_element(By.method, value)
+        return self.driver.find_element(method, value)
 
 
     #disclaimer this project and intended web scraping acts are for educational puprposes only
@@ -109,9 +109,11 @@ class Scraper:
 
         #------------------------------------------------------------------ title, url, rating, number_of_ratings, duration ------------------------------------------------#
         self.navigate("https://www.imdb.com/search/title/?title_type=feature&user_rating=6,&num_votes=10000,")
-        ul = self.find_element_by(XPATH, '//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul')
-        button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/div[2]/div/span/button')
-
+        print("after navigation")
+        ul = self.find_element_by(By.XPATH, '//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul')
+        print("after ul")
+        button = self.find_element_by(By.XPATH, '//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/div[2]/div/span/button')
+        print("after button")
         for i in range(175):
             current_scroll_position = self.driver.execute_script("return window.scrollY;")
             self.driver.execute_script(f"window.scrollTo(0, {current_scroll_position + 10000});")
@@ -131,10 +133,10 @@ class Scraper:
 
         time.sleep(10)
         for i in range(1, 8788):
-            title_element = self.find_element_by(XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/div[1]/a/h3')
+            title_element = self.find_element_by(By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/div[1]/a/h3')
             title = title_element.text
             title = title[3:]
-            url_element = self.find_element_by(XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/div[1]/a')
+            url_element = self.find_element_by(By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/div[1]/a')
             url_text = url_element.get_attribute('href')
             url_aux = ""
             for j in url_text:
@@ -144,9 +146,9 @@ class Scraper:
                     url_aux += j
             url = url_aux
             rating_element_xpath = f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/span/div/span/span[1]'
-            rating_element = self.find_element_by(XPATH, rating_element_xpath)
+            rating_element = self.find_element_by(By.XPATH, rating_element_xpath)
             rating = Decimal(rating_element.text)
-            number_of_ratings_element = self.find_element_by(XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/span/div/span/span[2]')
+            number_of_ratings_element = self.find_element_by(By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/span/div/span/span[2]')
             number_of_ratings = number_of_ratings_element.text
             if number_of_ratings[-2] == "K":
                 number_of_ratings = int(number_of_ratings[2:-2]) * 1000
@@ -154,7 +156,7 @@ class Scraper:
                 number_of_ratings = float(number_of_ratings[2:-2]) * 1000000
                 number_of_ratings = int(number_of_ratings)
                 
-            duration_element = self.find_element_by(XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/div[2]/span[2]')
+            duration_element = self.find_element_by(By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/section/section/div/section/section/div[2]/div/section/div[2]/div[2]/ul/li[{i}]/div/div/div/div[1]/div[2]/div[2]/span[2]')
             duration_text = duration_element.text
             if duration_text[1] == 'h':
                 if len(duration_text) == 5:
@@ -208,20 +210,20 @@ class Scraper:
             j = 1 
             sibling = 0
             try:
-                button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[2]/button')
+                button = self.find_element_by(By.XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[2]/button')
                 button.click()
             except Exception as f:
                 print("no button all")
 
             try:
-                button = self.find_element_by(XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[1]/button')
+                button = self.find_element_by(By.XPATH, '//*[@id="__next"]/main/div/section/div/section/div/div[1]/section[1]/div[2]/ul/div/span[1]/button')
                 button.click()
             except Exception as e:
                 print("no button 'more'")
 
             while sibling != -1:
                 try:
-                    sibling = driver.find_element_by(XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[2]')
+                    sibling = driver.find_element_by(By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[2]')
                     if "internet" in sibling.text.lower() or "digital" in sibling.text.lower() or "dvd" in sibling.text.lower() or "blu-ray" in sibling.text.lower() or "re-release" in sibling.text.lower() or "istanbul" in sibling.text.lower():
                         release_date_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="rel_{j}"]/div/ul/li/span[1]')))
                         try:
@@ -272,7 +274,7 @@ class Scraper:
                     if j == 4:
                         dev_element = wait.until(EC.presence_of_element_located((By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/div[{j}]/img')))
                     else:
-                        dev_element = self.find_element_by(XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/div[{j}]/img')
+                        dev_element = self.find_element_by(By.XPATH, f'//*[@id="__next"]/main/div[2]/div[3]/div[{j}]/img')
 
                     j += 1
                     if "curr" in dev_element.get_attribute("data-image-id"):

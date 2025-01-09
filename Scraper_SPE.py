@@ -17,8 +17,8 @@ def monitor_resources(process, duration=1):
 # Main performance evaluation
 if __name__ == "__main__":
     # Initialize scraper
-    scraper = Scraper(host='localhost', user='root', password='password', database='movies_db',
-                      user_agent="Mozilla/5.0")
+    scraper = Scraper(host='localhost', user='ali', password='456430', database='movies02',
+                      user_agent= "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
 
     # Track performance of specific tasks
     tasks = [

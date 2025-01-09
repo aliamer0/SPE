@@ -339,14 +339,17 @@ def extract_and_combine_clips(video_path, output_path, output_path1, cap_path, s
         clips[i + 1] = clips[i + 1].crossfadein(adaptive_transition)
 
     # Add movie poster and text clip
-    image_clip = ImageClip(f"posters/{row[0]}.jpg", duration=2).fadein(0.5).fadeout(0.5).resize((1080, 1920))
-    text_clip = TextClip(f"{row[1]}\n Release date: {row[2]}\n Rating: {row[3]}", fontsize=60, color="white", font="Arial", size=(1080, 1920)).set_position("center", "center").set_duration(2).fadein(0.5).fadeout(0.2)
+    image_clip = ImageClip(f"5105.jpg", duration=2).fadein(0.5).fadeout(0.5).resize((1080, 1920))
+    text_clip = TextClip(f"\n Release date: \n Rating: ", fontsize=60, color="white", font="Arial", size=(1080, 1920)).set_position("center", "center").set_duration(2).fadein(0.5).fadeout(0.2)
     image_with_text = CompositeVideoClip([image_clip, text_clip])
     clips.append(image_with_text)
 
     # Combine all clips
     final_clip = concatenate_videoclips(clips, method="chain").resize((1080, 1920))
     # Generate subtitles
+    video_audio = final_clip.audio
+    final_audio = CompositeAudioClip([video_audio]).set_fps(44100)  # Set FPS explicitly
+    final_clip = final_clip.set_audio(final_audio)
     captions = transcribe_audio(final_clip)
     save_as_srt(captions, cap_path)
     text_clips = []
